@@ -9,8 +9,7 @@ Get-DomainOU | select name
 
 * Get GPO applied on an OU. Read GPOname from gplink attribute from Get-NetOU
 ```
-Get-DomainGPO -Identity "{0D1CC23D-1F20-4EEE-AF64-
-D99597AE2A6E}"
+Get-DomainGPO -Identity "{0D1CC23D-1F20-4EEE-AF64-D99597AE2A6E}"
 ```
 
 * List all computers in DevOps OU:

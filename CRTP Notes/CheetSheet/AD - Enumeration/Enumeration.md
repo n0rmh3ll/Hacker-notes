@@ -7,6 +7,19 @@ For enumeration we can use the following tools :
 ### Using PowerView
 #powerview #enum
 
+* Load powerView :
+```
+powershell -ExecutionPolicy Bypass
+```
+
+```
+. C:\ProgramData\PowerView.ps1
+```
+or 
+```
+Import-Module C:\ProgramData\PowerView.ps1
+```
+
 * Get current domain
 ```
 Get-Domain

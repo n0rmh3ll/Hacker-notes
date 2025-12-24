@@ -9,10 +9,11 @@ https://github.com/OmerYa/Invisi-Shell
 
 * With admin privileges:
 ```
-RunWithPathAsAdmin.bat
+C:\AD\Tools\InviShell\RunWithPathAsAdmin.bat
 ``` 
 
 *  With non-admin privileges: 
 ```
-RunWithRegistryNonAdmin.bat
+C:\AD\Tools\InviShell\RunWithRegistryNonAdmin.bat
 ```
+	
