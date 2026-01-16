@@ -484,7 +484,10 @@ Invoke-PrivEscCheck
 winPEASx64.exe
 ```
 
-
+* Test admin Access 
+```
+Test-AdminAccess -ComputerName ACADEMY-EA-MS01
+```
 
 # Lateral Movement - PowerShell Remoting
 #remoting
@@ -575,9 +578,11 @@ Credentials are extracted from LSASS because Windows must store them for authent
 
 Another important place to hunt for credentials is Powershell History file, which is usually stored as plain text:
 
-The default location for this file is 
+The default location for this file is `$env:APPDATA\Microsoft\Windows\Powershell\PSReadline\ConsoleHost_history.txt`
+
+We can print the history by :
 ```
-$env:APPDATA\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt
+Get-Content $env:APPDATA\Microsoft\Windows\Powershell\PSReadline\ConsoleHost_history.txt
 ```
 You can get the location by running `Get-PSReadlineOption` and looking at the options. There’s a few history related ones:
 

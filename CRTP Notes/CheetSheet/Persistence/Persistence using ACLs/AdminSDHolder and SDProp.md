@@ -31,7 +31,7 @@ Now that's the real persistence !!
 
 # Why This Matters (From an Attacker’s Perspective)
 
-	From a defensive standpoint, AdminSDHolder exists to protect the crown jewels of Active Directory. But from an attacker’s or red teamer’s perspective, it represents a **high-impact, low-noise persistence vector**.
+From a defensive standpoint, AdminSDHolder exists to protect the crown jewels of Active Directory. But from an attacker’s or red teamer’s perspective, it represents a **high-impact, low-noise persistence vector**.
 
 By the time defenders notice suspicious permissions on protected accounts, SDProp may have already re-applied them—again and again.
 

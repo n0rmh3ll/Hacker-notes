@@ -58,6 +58,11 @@ Get-DomainUser | select samaccountname,logonCount
 Get-DomainUser -Identity student1
 ```
 
+* List machine accounts in the domain
+```
+ Get-DomainUser * -spn | select samaccountname
+```
+
 * Get list of all properties for users in the current domain
 ```
 Get-DomainUser -Identity student1 -Properties * 

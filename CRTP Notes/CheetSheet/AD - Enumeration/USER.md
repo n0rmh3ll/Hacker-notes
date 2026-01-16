@@ -16,6 +16,11 @@ Find-WMILocalAdminAccess.ps1
 Find-PSRemotingLocalAdminAccess.ps1
 ```
 
+If we find any computer with local admin access we can EnterPSSession into that :
+```
+Enter-PSSession dcorp-adminsrv
+```
+
 * Find computers where a domain admin (or specified user/group) has sessions:
 ```
 Find-DomainUserLocation -Verbose
